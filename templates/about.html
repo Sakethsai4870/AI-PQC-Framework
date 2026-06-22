@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — AI-PQC Framework</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🔐 AI-PQC<span>Framework</span></a>
+    <div class="nav-links">
+      <a href="/">Scanner</a>
+      <a href="/history">History</a>
+      <a href="/about" class="active">About</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container" style="max-width:860px;">
+
+  <div class="page-header">
+    <h1>About AI-PQC Framework</h1>
+    <p>M.Tech Research Project — AI-Driven Hybrid Post-Quantum Secure Communication Framework</p>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🤖 AI Model Information</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Model Type</div>
+        <div class="info-value">Random Forest Classifier</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Estimators</div>
+        <div class="info-value">200 decision trees</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Output Classes</div>
+        <div class="info-value">Low · Medium · High · Critical</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Explainability</div>
+        <div class="info-value">Feature importance + detected value direction</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Confidence</div>
+        <div class="info-value">Per-class probability via predict_proba()</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Validation</div>
+        <div class="info-value">5-fold cross-validation</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">📊 Training Dataset</div>
+    <div style="font-size:0.9rem;color:#444;margin-bottom:1rem;">
+      The classifier was trained on a curated synthetic dataset derived from real-world website
+      cryptographic configurations, spanning 2,000 labelled samples across four migration priority classes.
+      Each class represents a distinct security posture observed in practice:
+    </div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Dataset Type</div>
+        <div class="info-value">Synthetic + Public Website Security Dataset</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Samples</div>
+        <div class="info-value">2,000 (500 per class, balanced)</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Low Priority</div>
+        <div class="info-value">Hybrid PQC deployed or PQC-native certificate</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Medium Priority</div>
+        <div class="info-value">TLS 1.3 + classical cert + strong headers</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">High Priority</div>
+        <div class="info-value">Classical crypto, weak/moderate headers, no PQC</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Critical Priority</div>
+        <div class="info-value">Legacy TLS or critically undersized key (&lt;2048 bit)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🔢 Model Features (9)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+      <thead>
+        <tr style="background:#1a1a2e;color:white;">
+          <th style="padding:8px 12px;text-align:left;">#</th>
+          <th style="padding:8px 12px;text-align:left;">Feature</th>
+          <th style="padding:8px 12px;text-align:left;">Description</th>
+          <th style="padding:8px 12px;text-align:left;">Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set rows = [
+          ('1', 'Certificate Algorithm', 'Quantum vulnerability of the signing algorithm (RSA/ECDSA/PQC)', 'SSL Certificate'),
+          ('2', 'Key Size', 'Whether key length provides adequate cryptographic strength', 'SSL Certificate'),
+          ('3', 'TLS Version', 'Protocol version risk and PQC hybrid group support', 'TLS Handshake'),
+          ('4', 'Cipher Suite', 'Symmetric cipher strength (AES-256 / AES-128 / weak)', 'TLS Handshake'),
+          ('5', 'Security Headers', 'HTTP header coverage (HSTS, CSP, etc.)', 'HTTP Headers'),
+          ('6', 'DNSSEC Status', 'Whether DNS responses are cryptographically authenticated', 'DNS Query'),
+          ('7', 'Hybrid PQC', 'Whether hybrid post-quantum key exchange is deployed', 'X-PQC-* Headers'),
+          ('8', 'Key Exchange', 'Quantum risk of negotiated KE algorithm (ML-KEM / ECDHE / RSA)', 'TLS Handshake'),
+          ('9', 'PQC Header Count', 'Number of X-PQC-* headers present (0–4)', 'HTTP Headers'),
+        ] %}
+        {% for num, name, desc, src in rows %}
+        <tr style="background:{{ '#f8f9fa' if loop.index % 2 == 0 else 'white' }};">
+          <td style="padding:7px 12px;color:#888;">{{ num }}</td>
+          <td style="padding:7px 12px;font-weight:600;">{{ name }}</td>
+          <td style="padding:7px 12px;color:#444;">{{ desc }}</td>
+          <td style="padding:7px 12px;color:#666;font-size:0.82rem;">{{ src }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">📐 NIST Post-Quantum Standards</div>
+    <div class="pqc-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+      <div class="pqc-card">
+        <h4>ML-KEM</h4>
+        <div class="formerly">formerly CRYSTALS-Kyber</div>
+        <div class="pqc-status">NIST FIPS 203</div>
+        <p>Key encapsulation mechanism for quantum-safe key exchange. Replaces RSA/ECDH.</p>
+      </div>
+      <div class="pqc-card">
+        <h4>ML-DSA</h4>
+        <div class="formerly">formerly CRYSTALS-Dilithium</div>
+        <div class="pqc-status">NIST FIPS 204</div>
+        <p>Lattice-based digital signature algorithm. Replaces RSA/ECDSA certificates.</p>
+      </div>
+      <div class="pqc-card">
+        <h4>SLH-DSA</h4>
+        <div class="formerly">formerly SPHINCS+</div>
+        <div class="pqc-status">NIST FIPS 205</div>
+        <p>Hash-based signature scheme. Suitable for DNSSEC zone signing key migration.</p>
+      </div>
+      <div class="pqc-card">
+        <h4>FN-DSA</h4>
+        <div class="formerly">formerly FALCON</div>
+        <div class="pqc-status">NIST FIPS 206</div>
+        <p>Compact lattice-based signature algorithm for constrained environments.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:2rem;">
+    <div class="card-title">🔍 Detection Capabilities</div>
+    <div class="info-grid">
+      <div class="info-item"><div class="info-label">SSL/TLS Scanner</div><div class="info-value">Version, cipher suite, key algorithm, key size, cert expiry, issuer</div></div>
+      <div class="info-item"><div class="info-label">Header Scanner</div><div class="info-value">8 security headers + 4 X-PQC-* headers (hybrid PQC detection)</div></div>
+      <div class="info-item"><div class="info-label">DNS Scanner</div><div class="info-value">A/AAAA records, MX, NS, DNSSEC validation</div></div>
+      <div class="info-item"><div class="info-label">PQC Headers</div><div class="info-value">X-PQC-KeyExchange · X-PQC-Signature · X-PQC-Mode · X-PQC-Version</div></div>
+      <div class="info-item"><div class="info-label">AI Output</div><div class="info-value">Migration priority class, confidence %, class probabilities, factor ranking</div></div>
+      <div class="info-item"><div class="info-label">Report Formats</div><div class="info-value">Interactive web report + PDF (ReportLab)</div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

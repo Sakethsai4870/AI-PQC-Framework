@@ -140,9 +140,21 @@ def _determine_migration_priority(profile):
     )
 
 
-def generate_recommendations(ssl_data, domain_data, header_data, features):
+def generate_recommendations(ssl_data, domain_data, header_data, features, ml_priority=None):
+    """
+    Generate context-aware recommendations.
+    If ml_priority is provided (from the RF classifier), it takes precedence over
+    the rule-based _determine_migration_priority() heuristic.
+    """
     profile = _classify_profile(ssl_data, domain_data, header_data)
-    migration_priority, migration_rationale = _determine_migration_priority(profile)
+
+    if ml_priority and ml_priority in ('Low', 'Medium', 'High', 'Critical'):
+        # Use the ML model's prediction; generate rationale from the profile
+        _, rule_rationale = _determine_migration_priority(profile)
+        migration_priority = ml_priority
+        migration_rationale = rule_rationale
+    else:
+        migration_priority, migration_rationale = _determine_migration_priority(profile)
 
     quantum_risk = assess_quantum_risk(
         profile['algorithm'], profile['key_size'], profile['ssl_version']

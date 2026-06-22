@@ -9,8 +9,9 @@ from scanner.header_scanner import scan_headers
 from scanner.feature_extractor import extract_features
 from pqc.recommendation import generate_recommendations
 from pqc.quantum import assess_quantum_risk
-from ai.predictor import predict_risk, calculate_overall_score
+from ai.predictor import predict_risk, predict_migration_priority, calculate_overall_score
 from ai.explain import explain_prediction, generate_ai_decision_explanation
+from ai.train_model import ensure_model_trained
 from reports.pdf_generator import generate_pdf_report
 from datetime import datetime
 import requests as req
@@ -21,6 +22,9 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+# Train the RF migration priority model at startup if not already saved
+ensure_model_trained()
 
 
 def clean_domain(domain):
@@ -38,6 +42,11 @@ def index():
     return render_template('index.html', recent_scans=recent_scans)
 
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
+
 @app.route('/scan', methods=['POST'])
 def scan():
     data = request.get_json()
@@ -49,23 +58,49 @@ def scan():
         return jsonify({'error': 'Invalid domain'}), 400
 
     try:
-        ssl_data = scan_ssl(domain)
+        ssl_data    = scan_ssl(domain)
         domain_data = scan_domain(domain)
         header_data = scan_headers(domain)
-        features = extract_features(ssl_data, domain_data, header_data)
-        prediction = predict_risk(features)
-        explanation = explain_prediction(features, prediction)
-        recommendations = generate_recommendations(ssl_data, domain_data, header_data, features)
-        ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, recommendations)
-        overall_score = calculate_overall_score(prediction['score'], header_data.get('score', 0))
+        features    = extract_features(ssl_data, domain_data, header_data)
+
+        # Quantum vulnerability score (continuous 0-1)
+        prediction  = predict_risk(features)
+
+        # RF classifier: migration priority class + confidence + feature importances
+        ml_pred     = predict_migration_priority(features)
+
+        # Explainability bars (RF-weighted)
+        explanation = explain_prediction(
+            features, prediction,
+            rf_importances=list(ml_pred['feature_importances'].values())
+        )
+
+        # Context-aware recommendations — ML priority drives the output
+        recommendations = generate_recommendations(
+            ssl_data, domain_data, header_data, features,
+            ml_priority=ml_pred['priority']
+        )
+
+        # AI Decision Explanation with RF feature importances for factor ranking
+        ai_decision = generate_ai_decision_explanation(
+            ssl_data, domain_data, header_data, recommendations,
+            feature_importances=ml_pred['feature_importances']
+        )
+
+        overall_score = calculate_overall_score(
+            prediction['score'], header_data.get('score', 0)
+        )
 
         rec_text = json.dumps({
-            'migration_priority': recommendations['migration_priority'],
+            'migration_priority':  recommendations['migration_priority'],
             'migration_rationale': recommendations['migration_rationale'],
-            'priority_actions': recommendations['priority_actions'],
-            'recommendations': recommendations['recommendations'],
-            'profile': recommendations['profile'],
-            'quantum_risk': recommendations['quantum_risk'],
+            'priority_actions':    recommendations['priority_actions'],
+            'recommendations':     recommendations['recommendations'],
+            'profile':             recommendations['profile'],
+            'quantum_risk':        recommendations['quantum_risk'],
+            'ai_confidence':       ml_pred['confidence'],
+            'class_probabilities': ml_pred['class_probabilities'],
+            'feature_importances': ml_pred['feature_importances'],
         })
 
         scan_result = ScanResult(
@@ -81,7 +116,7 @@ def scan():
             headers_score=header_data.get('score', 0),
             overall_score=overall_score,
             raw_data=json.dumps({
-                'ssl': ssl_data,
+                'ssl':    ssl_data,
                 'domain': domain_data,
                 'headers': header_data,
             }),
@@ -90,19 +125,22 @@ def scan():
         db.session.commit()
 
         return jsonify({
-            'success': True,
-            'scan_id': scan_result.id,
-            'domain': domain,
-            'ssl': ssl_data,
-            'domain_info': domain_data,
-            'headers': header_data,
-            'features': features,
-            'prediction': prediction,
-            'explanation': explanation,
+            'success':         True,
+            'scan_id':         scan_result.id,
+            'domain':          domain,
+            'ssl':             ssl_data,
+            'domain_info':     domain_data,
+            'headers':         header_data,
+            'features':        features,
+            'prediction':      prediction,
+            'explanation':     explanation,
             'recommendations': recommendations,
-            'ai_decision': ai_decision,
-            'overall_score': overall_score,
-            'scan_date': scan_result.scan_date.isoformat(),
+            'ai_decision':     ai_decision,
+            'ai_confidence':   ml_pred['confidence'],
+            'class_probs':     ml_pred['class_probabilities'],
+            'ai_model':        ml_pred.get('model', 'Random Forest Classifier'),
+            'overall_score':   overall_score,
+            'scan_date':       scan_result.scan_date.isoformat(),
         })
 
     except Exception as e:
@@ -115,21 +153,38 @@ def view_report(scan_id):
     raw = {}
     recommendations = {}
     ai_decision = {}
+    confidence = None
+    class_probs = {}
     try:
-        raw = json.loads(scan.raw_data) if scan.raw_data else {}
+        raw      = json.loads(scan.raw_data) if scan.raw_data else {}
         rec_data = json.loads(scan.recommendations) if scan.recommendations else {}
         recommendations = rec_data
 
-        ssl_data = raw.get('ssl', {})
+        ssl_data    = raw.get('ssl', {})
         domain_data = raw.get('domain', {})
         header_data = raw.get('headers', {})
-        full_recs = generate_recommendations(ssl_data, domain_data, header_data, {})
-        ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, full_recs)
+
+        features    = extract_features(ssl_data, domain_data, header_data)
+        ml_pred     = predict_migration_priority(features)
+        confidence  = ml_pred['confidence']
+        class_probs = ml_pred['class_probabilities']
+
+        full_recs = generate_recommendations(
+            ssl_data, domain_data, header_data, features,
+            ml_priority=rec_data.get('migration_priority') or ml_pred['priority']
+        )
+        ai_decision = generate_ai_decision_explanation(
+            ssl_data, domain_data, header_data, full_recs,
+            feature_importances=ml_pred['feature_importances']
+        )
     except Exception:
         pass
 
-    return render_template('report.html', scan=scan, raw=raw,
-                           recommendations=recommendations, ai_decision=ai_decision)
+    return render_template(
+        'report.html', scan=scan, raw=raw,
+        recommendations=recommendations, ai_decision=ai_decision,
+        confidence=confidence, class_probs=class_probs
+    )
 
 
 @app.route('/report/<int:scan_id>/pdf')
@@ -138,43 +193,57 @@ def download_pdf(scan_id):
     raw = {}
     recommendations = {}
     try:
-        raw = json.loads(scan.raw_data) if scan.raw_data else {}
+        raw      = json.loads(scan.raw_data) if scan.raw_data else {}
         rec_data = json.loads(scan.recommendations) if scan.recommendations else {}
         recommendations = rec_data
     except Exception:
         pass
 
-    ssl_data = raw.get('ssl', {})
+    ssl_data    = raw.get('ssl', {})
     domain_data = raw.get('domain', {})
     header_data = raw.get('headers', {})
 
-    features = extract_features(ssl_data, domain_data, header_data)
-    prediction = predict_risk(features)
-    explanation = explain_prediction(features, prediction)
-    full_recs = generate_recommendations(ssl_data, domain_data, header_data, features)
-    ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, full_recs)
+    features    = extract_features(ssl_data, domain_data, header_data)
+    prediction  = predict_risk(features)
+    ml_pred     = predict_migration_priority(features)
 
-    migration_priority = recommendations.get('migration_priority') or full_recs.get('migration_priority', 'Unknown')
+    explanation = explain_prediction(
+        features, prediction,
+        rf_importances=list(ml_pred['feature_importances'].values())
+    )
+    full_recs = generate_recommendations(
+        ssl_data, domain_data, header_data, features,
+        ml_priority=recommendations.get('migration_priority') or ml_pred['priority']
+    )
+    ai_decision = generate_ai_decision_explanation(
+        ssl_data, domain_data, header_data, full_recs,
+        feature_importances=ml_pred['feature_importances']
+    )
+
+    migration_priority  = recommendations.get('migration_priority') or full_recs.get('migration_priority', 'Unknown')
     migration_rationale = recommendations.get('migration_rationale') or full_recs.get('migration_rationale', '')
-    priority_actions = recommendations.get('priority_actions') or full_recs.get('priority_actions', [])
-    rec_list = recommendations.get('recommendations') or full_recs.get('recommendations', [])
-    profile = recommendations.get('profile') or full_recs.get('profile', {})
+    priority_actions    = recommendations.get('priority_actions') or full_recs.get('priority_actions', [])
+    rec_list            = recommendations.get('recommendations') or full_recs.get('recommendations', [])
+    profile             = recommendations.get('profile') or full_recs.get('profile', {})
 
     pdf_data = {
-        'domain': scan.domain,
-        'scan_date': scan.scan_date.strftime('%Y-%m-%d %H:%M UTC') if scan.scan_date else '',
-        'risk_level': scan.risk_level,
-        'overall_score': scan.overall_score or 0,
-        'migration_priority': migration_priority,
+        'domain':              scan.domain,
+        'scan_date':           scan.scan_date.strftime('%Y-%m-%d %H:%M UTC') if scan.scan_date else '',
+        'risk_level':          scan.risk_level,
+        'overall_score':       scan.overall_score or 0,
+        'migration_priority':  migration_priority,
         'migration_rationale': migration_rationale,
-        'ssl': ssl_data,
-        'domain_info': domain_data,
-        'headers': header_data,
-        'explanation': explanation,
-        'priority_actions': priority_actions,
-        'recommendations': rec_list,
-        'profile': profile,
-        'ai_decision': ai_decision,
+        'ssl':                 ssl_data,
+        'domain_info':         domain_data,
+        'headers':             header_data,
+        'explanation':         explanation,
+        'priority_actions':    priority_actions,
+        'recommendations':     rec_list,
+        'profile':             profile,
+        'ai_decision':         ai_decision,
+        'ai_confidence':       ml_pred['confidence'],
+        'class_probs':         ml_pred['class_probabilities'],
+        'ai_model':            ml_pred.get('model', 'Random Forest Classifier'),
     }
 
     pdf_buffer = generate_pdf_report(pdf_data)

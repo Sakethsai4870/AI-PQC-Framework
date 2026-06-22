@@ -1,0 +1,294 @@
+You are a senior AI security engineer working on an M.Tech research project titled **"AI-Driven Hybrid Post-Quantum Secure Communication Framework."**
+
+Do NOT redesign the application. Preserve the existing Flask architecture, UI, website scanner, PDF report generator, routing, and folder structure.
+
+The current implementation is functional but still behaves like a rule-based expert system. Refactor it into a genuinely AI-assisted framework.
+
+## Objectives
+
+### 1. Add AI-based Migration Priority Prediction
+
+Replace static migration priority assignment with an AI prediction model.
+
+Requirements:
+
+* Train a Random Forest Classifier (preferred) or XGBoost classifier.
+* Features should include:
+
+  * TLS Version
+  * Certificate Algorithm
+  * Key Size
+  * Cipher Suite
+  * Security Header Score
+  * DNSSEC Status
+  * Hybrid PQC Detection
+  * Key Exchange Algorithm
+  * Custom PQC Headers
+* Output classes:
+
+  * Low
+  * Medium
+  * High
+  * Critical
+
+Do NOT hardcode migration priority.
+
+The trained model must predict it.
+
+---
+
+### 2. Display AI Confidence
+
+Every report must include
+
+AI Prediction Confidence
+
+Example
+
+93.7%
+
+This confidence should come from the classifier probabilities.
+
+---
+
+### 3. Improve Explainability
+
+Expand the existing AI Decision Explanation section.
+
+Instead of generic text, explain WHY the model produced its prediction.
+
+Example
+
+Top Positive Factors
+
+• TLS 1.3 supports hybrid PQ groups
+
+• Strong AES-256 symmetric encryption
+
+• Strong HTTP security headers
+
+Top Negative Factors
+
+• ECDSA certificate detected
+
+• Hybrid ML-KEM not detected
+
+• DNSSEC unavailable
+
+Generate these dynamically from detected scan results.
+
+If SHAP is available, use SHAP values.
+
+Otherwise use Random Forest feature importance combined with detected values.
+
+---
+
+### 4. Improve Recommendation Engine
+
+Recommendations must be generated dynamically.
+
+Different websites must produce different recommendations.
+
+Examples
+
+Case A
+
+TLS1.3
+
+ECDSA
+
+No Hybrid PQ
+
+↓
+
+High Migration Priority
+
+↓
+
+Recommend
+
+Hybrid ML-KEM
+
+ML-DSA
+
+Certificate migration
+
+---
+
+Case B
+
+TLS1.3
+
+ECDSA
+
+Strong Headers
+
+↓
+
+Medium Migration Priority
+
+↓
+
+Recommend gradual migration
+
+---
+
+Case C
+
+Hybrid PQ Detected
+
+ML-KEM
+
+ML-DSA
+
+↓
+
+Low Migration Priority
+
+↓
+
+Recommend maintaining deployment
+
+Monitor NIST updates
+
+Do NOT generate identical PDFs for different websites.
+
+---
+
+### 5. Improve Quantum Assessment
+
+Keep the framework focused ONLY on future quantum resilience.
+
+Do NOT add a Current Security Score.
+
+Instead report
+
+Detected Cryptographic Configuration
+
+Quantum Vulnerability Score
+
+Migration Priority
+
+AI Prediction Confidence
+
+AI Recommendation
+
+AI Decision Explanation
+
+---
+
+### 6. Better Key Exchange Detection
+
+If the negotiated key exchange cannot be determined,
+
+display
+
+Unknown (Not Observable)
+
+instead of assuming RSA or DHE.
+
+Recommendations should account for uncertainty.
+
+---
+
+### 7. Add Dataset Information
+
+Include in the About section of the application
+
+AI Model
+
+Random Forest Classifier
+
+Training Dataset
+
+Synthetic + Public Website Security Dataset
+
+Features
+
+TLS
+
+Certificate Algorithm
+
+Key Size
+
+Cipher
+
+DNSSEC
+
+Headers
+
+Hybrid PQ Detection
+
+Key Exchange
+
+---
+
+### 8. Hybrid PQ Detection
+
+Support detection of
+
+X-PQC-KeyExchange
+
+X-PQC-Signature
+
+X-PQC-Mode
+
+X-PQC-Version
+
+If detected
+
+Reduce Quantum Vulnerability Score
+
+Lower Migration Priority
+
+Generate Hybrid Deployment recommendations
+
+---
+
+### 9. Preserve Existing Features
+
+Keep
+
+Website scanner
+
+TLS scanner
+
+SSL certificate parser
+
+Header scanner
+
+PDF generation
+
+Dashboard
+
+Charts
+
+Risk scoring
+
+Report layout
+
+unchanged unless necessary.
+
+Only enhance the AI capabilities.
+
+---
+
+### 10. Code Quality
+
+Do not rewrite the entire project.
+
+Modify only the modules necessary.
+
+Keep functions modular.
+
+Add comments.
+
+Avoid duplicate code.
+
+Ensure the project continues to run without breaking existing functionality.
+
+The final result should justify the project title:
+
+"AI-Driven Hybrid Post-Quantum Secure Communication Framework"
+
+The AI should genuinely influence migration priority, recommendations, and explainability rather than relying on static rules.

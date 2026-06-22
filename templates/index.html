@@ -14,6 +14,7 @@
     <div class="nav-links">
       <a href="/" class="active">Scanner</a>
       <a href="/history">History</a>
+      <a href="/about">About</a>
     </div>
   </div>
 </nav>
@@ -85,6 +86,10 @@
       <div class="stat-card">
         <div class="stat-value" id="stat-hybrid">—</div>
         <div class="stat-label">Hybrid PQC</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-confidence">—</div>
+        <div class="stat-label">AI Confidence</div>
       </div>
     </div>
 
@@ -313,13 +318,22 @@ function renderResults(data) {
     </div>`;
   }).join('');
 
+  // AI Confidence
+  const confidence = data.ai_confidence;
+  document.getElementById('stat-confidence').innerHTML = confidence != null
+    ? `<span style="color:#16213e;font-weight:700;">${confidence}%</span>`
+    : `<span style="color:#aaa;">—</span>`;
+
   // Migration Priority block
   const recs = data.recommendations || {};
   const mpColor = PRIORITY_COLORS[migrationPriority] || '#333';
   const mpBg = PRIORITY_BG[migrationPriority] || '#f8f9fa';
+  const confBadge = confidence != null
+    ? `<span style="margin-left:0.75rem;font-size:0.78rem;font-weight:600;background:rgba(0,0,0,0.08);padding:2px 8px;border-radius:12px;">AI Confidence: ${confidence}%</span>`
+    : '';
   document.getElementById('migration-priority-block').innerHTML = `
     <div style="padding:1rem;border-radius:10px;background:${mpBg};border-left:4px solid ${mpColor};">
-      <div style="font-size:1.1rem;font-weight:700;color:${mpColor};">Migration Priority: ${migrationPriority}</div>
+      <div style="font-size:1.1rem;font-weight:700;color:${mpColor};">Migration Priority: ${migrationPriority}${confBadge}</div>
       ${recs.migration_rationale ? `<div style="font-size:0.88rem;color:#555;margin-top:0.35rem;">${recs.migration_rationale}</div>` : ''}
     </div>`;
 
@@ -345,26 +359,57 @@ function renderResults(data) {
 
   // AI Decision Explanation
   const aid = data.ai_decision || {};
-  let aidHtml = '';
-  if (aid.reasoning) {
-    aidHtml += `<div class="alert alert-info" style="font-size:0.88rem;margin-bottom:1rem;">${aid.reasoning}</div>`;
-  }
-  if (aid.positive_count != null) {
-    aidHtml += `<div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:0.75rem;">
-      ${aid.positive_count} positive factor${aid.positive_count !== 1 ? 's' : ''}
-      &nbsp;·&nbsp;
-      ${aid.negative_count} negative factor${aid.negative_count !== 1 ? 's' : ''}
-    </div>`;
-  }
-  aidHtml += (aid.factors || []).map(f => {
-    const fc = f.impact === 'Positive' ? '#1e8449' : f.impact === 'Negative' ? '#c0392b' : '#7f8c8d';
+
+  function renderFactor(f) {
+    const fc  = f.impact === 'Positive' ? '#1e8449' : f.impact === 'Negative' ? '#c0392b' : '#7f8c8d';
     const fbg = f.impact === 'Positive' ? '#f0fdf9' : f.impact === 'Negative' ? '#fff5f5' : '#f8f9fa';
     const icon = f.impact === 'Positive' ? '✚' : f.impact === 'Negative' ? '✖' : '●';
     return `<div style="border-left:3px solid ${fc};padding:0.6rem 0.75rem;margin-bottom:0.6rem;background:${fbg};border-radius:0 6px 6px 0;">
       <div style="font-weight:600;font-size:0.88rem;color:${fc};">${icon} ${f.factor}</div>
       <div style="font-size:0.82rem;color:#555;margin-top:0.2rem;">${f.detail}</div>
     </div>`;
-  }).join('');
+  }
+
+  let aidHtml = '';
+
+  // Model + confidence banner
+  if (confidence != null) {
+    aidHtml += `<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;padding:0.75rem 1rem;background:#f0f4ff;border-radius:8px;border:1px solid #dce3ff;">
+      <div><span style="font-size:0.78rem;color:#666;text-transform:uppercase;letter-spacing:0.06em;">AI Model</span><div style="font-weight:700;color:#16213e;font-size:0.9rem;">${data.ai_model || 'Random Forest Classifier'}</div></div>
+      <div style="margin-left:auto;text-align:right;"><span style="font-size:0.78rem;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Prediction Confidence</span><div style="font-weight:700;font-size:1.4rem;color:#16213e;">${confidence}%</div></div>
+    </div>`;
+  }
+
+  if (aid.reasoning) {
+    aidHtml += `<div class="alert alert-info" style="font-size:0.88rem;margin-bottom:1rem;">${aid.reasoning}</div>`;
+  }
+
+  const posFactors = aid.positive_factors || (aid.factors || []).filter(f => f.impact === 'Positive');
+  const negFactors = aid.negative_factors || (aid.factors || []).filter(f => f.impact === 'Negative');
+  const neuFactors = aid.neutral_factors  || (aid.factors || []).filter(f => f.impact === 'Neutral');
+
+  if (posFactors.length) {
+    aidHtml += `<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.07em;color:#1e8449;text-transform:uppercase;margin-bottom:0.4rem;">Top Positive Factors</div>`;
+    aidHtml += posFactors.map(renderFactor).join('');
+  }
+  if (negFactors.length) {
+    aidHtml += `<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.07em;color:#c0392b;text-transform:uppercase;margin:0.75rem 0 0.4rem;">Top Negative Factors</div>`;
+    aidHtml += negFactors.map(renderFactor).join('');
+  }
+  if (neuFactors.length) {
+    aidHtml += `<div style="font-size:0.75rem;font-weight:700;letter-spacing:0.07em;color:#7f8c8d;text-transform:uppercase;margin:0.75rem 0 0.4rem;">Neutral Observations</div>`;
+    aidHtml += neuFactors.map(renderFactor).join('');
+  }
+
+  if (aid.positive_count != null) {
+    aidHtml += `<div style="font-size:0.82rem;color:var(--text-muted);margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #eee;">
+      ${aid.positive_count} positive factor${aid.positive_count !== 1 ? 's' : ''}
+      &nbsp;·&nbsp;
+      ${aid.negative_count} negative factor${aid.negative_count !== 1 ? 's' : ''}
+      &nbsp;·&nbsp; Ranked by RF feature importance
+    </div>`;
+  }
+
   document.getElementById('ai-decision').innerHTML = aidHtml || '<p style="color:var(--text-muted);font-size:0.9rem;">No explanation available.</p>';
 
   // NIST Standards

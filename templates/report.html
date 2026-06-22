@@ -14,6 +14,7 @@
     <div class="nav-links">
       <a href="/">Scanner</a>
       <a href="/history">History</a>
+      <a href="/about">About</a>
     </div>
   </div>
 </nav>
@@ -57,6 +58,12 @@
         {% if raw['headers'].get('hybrid_pqc_detected') %}✓ Active{% else %}Not Detected{% endif %}
       </div>
       <div class="stat-label">Hybrid PQC</div>
+    </div>
+    {% endif %}
+    {% if confidence is not none %}
+    <div class="stat-card">
+      <div class="stat-value" style="color:#16213e;font-weight:700;">{{ confidence }}%</div>
+      <div class="stat-label">AI Confidence</div>
     </div>
     {% endif %}
   </div>
