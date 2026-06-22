@@ -40,7 +40,7 @@ def explain_prediction(features, prediction, rf_importances=None):
     feature_vector = prediction.get('feature_vector', [])
 
     if rf_importances and len(rf_importances) == 9:
-        weights = list(rf_importances.values())
+        weights = list(rf_importances) if isinstance(rf_importances, list) else list(rf_importances.values())
     else:
         # Default weights used before RF is available
         weights = [0.30, 0.20, 0.20, 0.10, 0.10, 0.10, 0.0, 0.0, 0.0]
