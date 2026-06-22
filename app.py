@@ -10,7 +10,7 @@ from scanner.feature_extractor import extract_features
 from pqc.recommendation import generate_recommendations
 from pqc.quantum import assess_quantum_risk
 from ai.predictor import predict_risk, calculate_overall_score
-from ai.explain import explain_prediction
+from ai.explain import explain_prediction, generate_ai_decision_explanation
 from reports.pdf_generator import generate_pdf_report
 from datetime import datetime
 import requests as req
@@ -56,11 +56,16 @@ def scan():
         prediction = predict_risk(features)
         explanation = explain_prediction(features, prediction)
         recommendations = generate_recommendations(ssl_data, domain_data, header_data, features)
+        ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, recommendations)
         overall_score = calculate_overall_score(prediction['score'], header_data.get('score', 0))
 
         rec_text = json.dumps({
+            'migration_priority': recommendations['migration_priority'],
+            'migration_rationale': recommendations['migration_rationale'],
             'priority_actions': recommendations['priority_actions'],
-            'recommendations': recommendations['recommendations'][:5],
+            'recommendations': recommendations['recommendations'],
+            'profile': recommendations['profile'],
+            'quantum_risk': recommendations['quantum_risk'],
         })
 
         scan_result = ScanResult(
@@ -95,6 +100,7 @@ def scan():
             'prediction': prediction,
             'explanation': explanation,
             'recommendations': recommendations,
+            'ai_decision': ai_decision,
             'overall_score': overall_score,
             'scan_date': scan_result.scan_date.isoformat(),
         })
@@ -107,16 +113,23 @@ def scan():
 def view_report(scan_id):
     scan = ScanResult.query.get_or_404(scan_id)
     raw = {}
-    explanation = {}
     recommendations = {}
+    ai_decision = {}
     try:
         raw = json.loads(scan.raw_data) if scan.raw_data else {}
         rec_data = json.loads(scan.recommendations) if scan.recommendations else {}
         recommendations = rec_data
+
+        ssl_data = raw.get('ssl', {})
+        domain_data = raw.get('domain', {})
+        header_data = raw.get('headers', {})
+        full_recs = generate_recommendations(ssl_data, domain_data, header_data, {})
+        ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, full_recs)
     except Exception:
         pass
 
-    return render_template('report.html', scan=scan, raw=raw, recommendations=recommendations)
+    return render_template('report.html', scan=scan, raw=raw,
+                           recommendations=recommendations, ai_decision=ai_decision)
 
 
 @app.route('/report/<int:scan_id>/pdf')
@@ -124,7 +137,6 @@ def download_pdf(scan_id):
     scan = ScanResult.query.get_or_404(scan_id)
     raw = {}
     recommendations = {}
-    explanation = {}
     try:
         raw = json.loads(scan.raw_data) if scan.raw_data else {}
         rec_data = json.loads(scan.recommendations) if scan.recommendations else {}
@@ -132,24 +144,37 @@ def download_pdf(scan_id):
     except Exception:
         pass
 
-    features = extract_features(
-        raw.get('ssl', {}),
-        raw.get('domain', {}),
-        raw.get('headers', {}),
-    )
+    ssl_data = raw.get('ssl', {})
+    domain_data = raw.get('domain', {})
+    header_data = raw.get('headers', {})
+
+    features = extract_features(ssl_data, domain_data, header_data)
     prediction = predict_risk(features)
     explanation = explain_prediction(features, prediction)
+    full_recs = generate_recommendations(ssl_data, domain_data, header_data, features)
+    ai_decision = generate_ai_decision_explanation(ssl_data, domain_data, header_data, full_recs)
+
+    migration_priority = recommendations.get('migration_priority') or full_recs.get('migration_priority', 'Unknown')
+    migration_rationale = recommendations.get('migration_rationale') or full_recs.get('migration_rationale', '')
+    priority_actions = recommendations.get('priority_actions') or full_recs.get('priority_actions', [])
+    rec_list = recommendations.get('recommendations') or full_recs.get('recommendations', [])
+    profile = recommendations.get('profile') or full_recs.get('profile', {})
 
     pdf_data = {
         'domain': scan.domain,
         'scan_date': scan.scan_date.strftime('%Y-%m-%d %H:%M UTC') if scan.scan_date else '',
         'risk_level': scan.risk_level,
         'overall_score': scan.overall_score or 0,
-        'ssl': raw.get('ssl', {}),
-        'domain_info': raw.get('domain', {}),
-        'headers': raw.get('headers', {}),
+        'migration_priority': migration_priority,
+        'migration_rationale': migration_rationale,
+        'ssl': ssl_data,
+        'domain_info': domain_data,
+        'headers': header_data,
         'explanation': explanation,
-        'recommendations': recommendations,
+        'priority_actions': priority_actions,
+        'recommendations': rec_list,
+        'profile': profile,
+        'ai_decision': ai_decision,
     }
 
     pdf_buffer = generate_pdf_report(pdf_data)

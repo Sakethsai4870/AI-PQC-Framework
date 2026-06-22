@@ -30,57 +30,123 @@
     </div>
   </div>
 
+  {% set rl = scan.risk_level|lower if scan.risk_level else 'unknown' %}
+  {% set mp = recommendations.get('migration_priority', 'Unknown') if recommendations else 'Unknown' %}
+  {% set mp_lower = mp|lower %}
+
   <div class="stats-grid" style="margin-bottom:2rem;">
     <div class="stat-card">
-      {% set rl = scan.risk_level|lower if scan.risk_level else 'unknown' %}
       <div class="stat-value"><span class="badge badge-{{ rl }}">{{ scan.risk_level or 'N/A' }}</span></div>
       <div class="stat-label">Risk Level</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">{{ "%.0f"|format((scan.overall_score or 0) * 100) }}%</div>
-      <div class="stat-label">Overall Risk Score</div>
+      <div class="stat-value"><span class="badge badge-{{ mp_lower }}">{{ mp }}</span></div>
+      <div class="stat-label">Migration Priority</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">{{ "%.0f"|format((scan.quantum_risk_score or 0) * 100) }}%</div>
-      <div class="stat-label">Quantum Risk Score</div>
+      <div class="stat-label">Quantum Vuln. Score</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">{{ "%.0f"|format(scan.headers_score or 0) }}%</div>
-      <div class="stat-label">Header Security Score</div>
+      <div class="stat-label">Header Security</div>
     </div>
+    {% if raw and raw.get('headers') %}
+    <div class="stat-card">
+      <div class="stat-value" style="color:{% if raw['headers'].get('hybrid_pqc_detected') %}#1e8449{% else %}#aaa{% endif %};">
+        {% if raw['headers'].get('hybrid_pqc_detected') %}✓ Active{% else %}Not Detected{% endif %}
+      </div>
+      <div class="stat-label">Hybrid PQC</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Section 1: Detected Cryptographic Configuration -->
+  <div style="margin:1.5rem 0 0.5rem;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;">
+    1 — Detected Cryptographic Configuration
   </div>
 
   <div class="card-grid">
     <div class="card">
       <div class="card-title">🔒 SSL/TLS Details</div>
       <div class="info-grid">
-        <div class="info-item">
-          <div class="info-label">TLS Version</div>
-          <div class="info-value">{{ scan.ssl_version or '—' }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Cipher Suite</div>
-          <div class="info-value" style="font-size:0.82rem;">{{ scan.cipher_suite or '—' }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Key Algorithm</div>
-          <div class="info-value">{{ scan.key_algorithm or '—' }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Key Size</div>
-          <div class="info-value">{{ scan.key_size|string + ' bits' if scan.key_size else '—' }}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Certificate Expiry</div>
-          <div class="info-value" style="font-size:0.82rem;">{{ scan.cert_expiry or '—' }}</div>
-        </div>
+        <div class="info-item"><div class="info-label">TLS Version</div><div class="info-value">{{ scan.ssl_version or '—' }}</div></div>
+        <div class="info-item"><div class="info-label">Cipher Suite</div><div class="info-value" style="font-size:0.82rem;">{{ scan.cipher_suite or '—' }}</div></div>
+        <div class="info-item"><div class="info-label">Key Algorithm</div><div class="info-value">{{ scan.key_algorithm or '—' }}</div></div>
+        <div class="info-item"><div class="info-label">Key Size</div><div class="info-value">{{ scan.key_size|string + ' bits' if scan.key_size else '—' }}</div></div>
+        <div class="info-item"><div class="info-label">Certificate Expiry</div><div class="info-value" style="font-size:0.82rem;">{{ scan.cert_expiry or '—' }}</div></div>
+        {% if raw and raw.get('ssl') %}
+        <div class="info-item"><div class="info-label">Issuer</div><div class="info-value" style="font-size:0.82rem;">{{ raw['ssl'].get('cert_issuer', '—') }}</div></div>
+        {% endif %}
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">📊 Risk Meter</div>
-      {% set score_pct = ((scan.overall_score or 0) * 100)|int %}
-      {% set rl = scan.risk_level|lower if scan.risk_level else 'unknown' %}
+      <div class="card-title">🔑 Key Exchange &amp; Hybrid PQC</div>
+      {% if raw and raw.get('headers') %}
+        {% set hd = raw['headers'] %}
+        {% if hd.get('hybrid_pqc_detected') %}
+          <div class="alert alert-success" style="margin-bottom:0.75rem;">
+            ✅ <strong>Hybrid post-quantum deployment detected</strong>
+          </div>
+          {% for k, v in hd.get('pqc_headers', {}).items() %}
+          <div class="info-item" style="margin-bottom:0.5rem;">
+            <div class="info-label">{{ k }}</div>
+            <div class="info-value" style="font-size:0.83rem;font-family:monospace;">{{ v }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info" style="font-size:0.85rem;margin-bottom:0.75rem;">
+            No X-PQC-* headers detected. Classical key exchange only.
+          </div>
+        {% endif %}
+        {% if recommendations and recommendations.get('profile') %}
+          <div class="info-item" style="margin-top:0.5rem;">
+            <div class="info-label">Key Exchange</div>
+            <div class="info-value">{{ recommendations['profile'].get('key_exchange', '—') }}</div>
+          </div>
+          <div class="info-item" style="margin-top:0.5rem;">
+            <div class="info-label">Cipher Strength</div>
+            <div class="info-value">{{ recommendations['profile'].get('cipher_strength', '—') }}</div>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if raw and raw.get('headers') %}
+  {% set hd = raw['headers'] %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🛡️ HTTP Security Headers ({{ hd.get('score', 0) }}%)</div>
+    <div style="margin-bottom:0.5rem;">
+      {% for h in hd.get('present', []) %}<span class="header-tag header-present">✓ {{ h }}</span>{% endfor %}
+      {% for h in hd.get('missing', []) %}<span class="header-tag header-missing">✗ {{ h }}</span>{% endfor %}
+    </div>
+    {% if hd.get('error') %}<div class="alert alert-error" style="font-size:0.85rem;margin-top:0.5rem;">{{ hd['error'] }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if raw and raw.get('domain') %}
+  {% set dm = raw['domain'] %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🌐 DNS Information</div>
+    <div class="info-grid">
+      <div class="info-item"><div class="info-label">IP Addresses</div><div class="info-value">{{ dm.get('ip_addresses', [])|join(', ') or '—' }}</div></div>
+      <div class="info-item"><div class="info-label">DNSSEC</div><div class="info-value">{{ '✓ Enabled' if dm.get('dnssec_enabled') else '✗ Not detected' }}</div></div>
+      <div class="info-item"><div class="info-label">MX Records</div><div class="info-value">{{ dm.get('mx_records', [])|join(', ') or '—' }}</div></div>
+      <div class="info-item"><div class="info-label">NS Records</div><div class="info-value" style="font-size:0.82rem;">{{ dm.get('ns_records', [])|join(', ') or '—' }}</div></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Section 2: Quantum Vulnerability Score -->
+  <div style="margin:1.5rem 0 0.5rem;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;">
+    2 — Quantum Vulnerability Score
+  </div>
+  <div class="card-grid" style="margin-bottom:1.5rem;">
+    <div class="card">
+      {% set score_pct = ((scan.quantum_risk_score or 0) * 100)|int %}
+      <div class="card-title">📊 Vulnerability Score</div>
       <div class="score-circle score-{{ rl }}" style="margin-bottom:1rem;">
         <span class="score-num">{{ score_pct }}%</span>
         <span class="score-label">{{ scan.risk_level or 'Unknown' }}</span>
@@ -90,87 +156,58 @@
           <div class="risk-meter-fill fill-{{ rl }}" style="width:{{ score_pct }}%;"></div>
         </div>
       </div>
-      <p style="font-size:0.83rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">
-        Higher score = greater quantum vulnerability
-      </p>
+      <p style="font-size:0.83rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">Higher score = greater quantum vulnerability</p>
     </div>
-  </div>
-
-  {% if raw and raw.get('ssl') and raw['ssl'].get('cert_issuer') %}
-  <div class="card" style="margin-bottom:1.5rem;">
-    <div class="card-title">🏷️ Certificate Details</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">Subject</div>
-        <div class="info-value">{{ raw['ssl'].get('cert_subject', '—') }}</div>
+    {% if recommendations and recommendations.get('quantum_risk') %}
+    {% set qr = recommendations['quantum_risk'] %}
+    <div class="card">
+      <div class="card-title">⚛️ Algorithm Quantum Risk</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-label">Algorithm</div><div class="info-value">{{ qr.get('algorithm', '—') }}</div></div>
+        <div class="info-item"><div class="info-label">Vulnerable</div><div class="info-value" style="color:{% if qr.get('vulnerable') %}#c0392b{% else %}#1e8449{% endif %};">{{ 'Yes' if qr.get('vulnerable') else 'No' }}</div></div>
+        <div class="info-item"><div class="info-label">Severity</div><div class="info-value">{{ qr.get('severity', '—') }}</div></div>
+        <div class="info-item"><div class="info-label">Timeline</div><div class="info-value">{{ qr.get('timeline', '—') }}</div></div>
       </div>
-      <div class="info-item">
-        <div class="info-label">Issuer</div>
-        <div class="info-value">{{ raw['ssl'].get('cert_issuer', '—') }}</div>
-      </div>
+      {% if qr.get('threat_description') %}
+      <p style="font-size:0.83rem;color:#555;margin-top:0.75rem;">{{ qr['threat_description'] }}</p>
+      {% endif %}
     </div>
-  </div>
-  {% endif %}
-
-  {% if raw and raw.get('headers') %}
-  {% set hd = raw['headers'] %}
-  <div class="card" style="margin-bottom:1.5rem;">
-    <div class="card-title">🛡️ HTTP Security Headers ({{ hd.get('score', 0) }}%)</div>
-    <div style="margin-bottom:0.75rem;">
-      {% for h in hd.get('present', []) %}
-        <span class="header-tag header-present">✓ {{ h }}</span>
-      {% endfor %}
-      {% for h in hd.get('missing', []) %}
-        <span class="header-tag header-missing">✗ {{ h }}</span>
-      {% endfor %}
-    </div>
-    {% if hd.get('error') %}
-      <div class="alert alert-error" style="font-size:0.85rem;">{{ hd['error'] }}</div>
     {% endif %}
   </div>
-  {% endif %}
 
-  {% if raw and raw.get('domain') %}
-  {% set dm = raw['domain'] %}
-  <div class="card" style="margin-bottom:1.5rem;">
-    <div class="card-title">🌐 DNS Information</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">IP Addresses</div>
-        <div class="info-value">{{ dm.get('ip_addresses', [])|join(', ') or '—' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">DNSSEC</div>
-        <div class="info-value">{{ '✓ Enabled' if dm.get('dnssec_enabled') else '✗ Not detected' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">MX Records</div>
-        <div class="info-value">{{ dm.get('mx_records', [])|join(', ') or '—' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">NS Records</div>
-        <div class="info-value" style="font-size:0.82rem;">{{ dm.get('ns_records', [])|join(', ') or '—' }}</div>
-      </div>
-    </div>
+  <!-- Section 3: Migration Priority -->
+  <div style="margin:1.5rem 0 0.5rem;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;">
+    3 — Migration Priority
   </div>
-  {% endif %}
-
   {% if recommendations %}
-  {% if recommendations.get('priority_actions') %}
   <div class="card" style="margin-bottom:1.5rem;">
-    <div class="card-title">⚡ Priority Actions</div>
-    {% for action in recommendations['priority_actions'] %}
+    <div class="card-title">⚡ Migration Priority</div>
+    {% set mp_color_map = {'Critical': '#c0392b', 'High': '#d35400', 'Medium': '#d68910', 'Low': '#1e8449'} %}
+    {% set mp_bg_map = {'Critical': '#fde8e8', 'High': '#fff0e6', 'Medium': '#fff8e6', 'Low': '#e8f8f2'} %}
+    <div style="padding:1rem;border-radius:10px;background:{{ mp_bg_map.get(mp, '#f8f9fa') }};border-left:4px solid {{ mp_color_map.get(mp, '#ccc') }};margin-bottom:1rem;">
+      <div style="font-size:1.1rem;font-weight:700;color:{{ mp_color_map.get(mp, '#333') }};">Migration Priority: {{ mp }}</div>
+      {% if recommendations.get('migration_rationale') %}
+      <div style="font-size:0.88rem;color:#555;margin-top:0.35rem;">{{ recommendations['migration_rationale'] }}</div>
+      {% endif %}
+    </div>
+    {% for action in recommendations.get('priority_actions', []) %}
     <div class="rec-item priority-{{ action.priority }}">
       <div class="rec-title"><span class="badge badge-{{ action.priority|lower }}">{{ action.priority }}</span> {{ action.action }}</div>
       <div class="rec-detail">{{ action.detail }}</div>
     </div>
+    {% else %}
+    <p style="color:var(--text-muted);font-size:0.9rem;">No critical priority actions required.</p>
     {% endfor %}
   </div>
   {% endif %}
 
-  {% if recommendations.get('recommendations') %}
+  <!-- Section 4: AI Recommendation -->
+  <div style="margin:1.5rem 0 0.5rem;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;">
+    4 — AI Recommendation
+  </div>
+  {% if recommendations and recommendations.get('recommendations') %}
   <div class="card" style="margin-bottom:1.5rem;">
-    <div class="card-title">💡 Recommendations</div>
+    <div class="card-title">💡 Context-Aware Recommendations</div>
     {% for rec in recommendations['recommendations'] %}
     <div class="rec-item priority-{{ rec.urgency }}">
       <div class="rec-title">{{ rec.category }}: {{ rec.recommendation }}</div>
@@ -183,6 +220,38 @@
     {% endfor %}
   </div>
   {% endif %}
+
+  <!-- Section 5: AI Decision Explanation -->
+  <div style="margin:1.5rem 0 0.5rem;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;">
+    5 — AI Decision Explanation
+  </div>
+  {% if ai_decision %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🧠 AI Decision Explanation</div>
+    {% if ai_decision.get('reasoning') %}
+    <div class="alert alert-info" style="font-size:0.88rem;margin-bottom:1rem;">{{ ai_decision['reasoning'] }}</div>
+    {% endif %}
+    {% if ai_decision.get('positive_count') is not none %}
+    <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:0.75rem;">
+      {{ ai_decision.get('positive_count', 0) }} positive factor{{ 's' if ai_decision.get('positive_count', 0) != 1 else '' }}
+      &nbsp;·&nbsp;
+      {{ ai_decision.get('negative_count', 0) }} negative factor{{ 's' if ai_decision.get('negative_count', 0) != 1 else '' }}
+    </div>
+    {% endif %}
+    {% for f in ai_decision.get('factors', []) %}
+      {% if f.impact == 'Positive' %}
+        {% set fc = '#1e8449' %}{% set fbg = '#f0fdf9' %}{% set ficon = '✚' %}
+      {% elif f.impact == 'Negative' %}
+        {% set fc = '#c0392b' %}{% set fbg = '#fff5f5' %}{% set ficon = '✖' %}
+      {% else %}
+        {% set fc = '#7f8c8d' %}{% set fbg = '#f8f9fa' %}{% set ficon = '●' %}
+      {% endif %}
+    <div style="border-left:3px solid {{ fc }};padding:0.6rem 0.75rem;margin-bottom:0.6rem;background:{{ fbg }};border-radius:0 6px 6px 0;">
+      <div style="font-weight:600;font-size:0.88rem;color:{{ fc }};">{{ ficon }} {{ f.factor }}</div>
+      <div style="font-size:0.82rem;color:#555;margin-top:0.2rem;">{{ f.detail }}</div>
+    </div>
+    {% endfor %}
+  </div>
   {% endif %}
 
   <div style="text-align:center;padding:2rem 0;color:var(--text-muted);font-size:0.85rem;">

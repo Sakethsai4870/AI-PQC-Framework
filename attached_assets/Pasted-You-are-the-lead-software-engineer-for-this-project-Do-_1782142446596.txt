@@ -1,0 +1,130 @@
+You are the lead software engineer for this project. Do NOT redesign, simplify, or replace the existing architecture. Preserve the current UI, folder structure, Flask routes, report generation, and scanning logic.
+
+### Objective
+
+Refactor the recommendation engine so that recommendations are generated dynamically based on the detected website configuration instead of using fixed/static recommendations.
+
+### Requirements
+
+1. Keep the existing website scanning modules unchanged.
+2. Keep SSL/TLS analysis unchanged.
+3. Keep PDF report generation unchanged.
+4. Keep the current Quantum Vulnerability Score calculation unless absolutely necessary.
+
+### Replace the Recommendation Engine
+
+The recommendation section must no longer return identical recommendations for every website.
+
+Instead, recommendations must depend on the detected cryptographic configuration.
+
+Use decision logic based on:
+
+* TLS Version
+* Certificate Algorithm (RSA, ECDSA, ML-DSA)
+* Key Exchange Algorithm (ECDHE, X25519, ML-KEM, Hybrid)
+* Cipher Suite
+* Security Headers
+* DNSSEC Status
+* Hybrid PQC Detection
+* Custom PQC Headers (if present)
+
+Examples:
+
+Case 1:
+TLS1.3 + ECDSA + AES256
+→ Migration Priority = HIGH
+→ Recommend ML-KEM + ML-DSA Hybrid Migration
+
+Case 2:
+TLS1.3 + ECDSA + Strong Security Headers
+→ Migration Priority = MEDIUM
+→ Recommend gradual certificate migration while maintaining existing TLS configuration
+
+Case 3:
+TLS1.3 + ML-KEM + ML-DSA + Hybrid PQ Enabled
+→ Migration Priority = LOW
+→ Recommend maintaining current deployment and monitoring future NIST updates
+
+### AI Explainability
+
+Add a new section to the PDF called:
+
+AI Decision Explanation
+
+This section must explain why the recommendation was generated.
+
+Example:
+
+Top contributing factors
+
+• Classical signature algorithm detected (ECDSA)
+
+• Hybrid PQC not detected
+
+• TLS version supports modern deployment
+
+• Security headers correctly configured
+
+Do not generate generic explanations.
+
+Generate explanations from detected scan results.
+
+### Add Quantum Readiness Assessment
+
+Separate the report into:
+
+Detected Cryptographic Configuration
+
+Quantum Vulnerability Score
+
+Migration Priority
+
+AI Recommendation
+
+AI Decision Explanation
+
+Do NOT introduce a Current Security Score.
+
+This framework evaluates future quantum resilience only.
+
+### Hybrid PQ Detection
+
+Implement detection of custom HTTP headers if present:
+
+X-PQC-KeyExchange
+
+X-PQC-Signature
+
+X-PQC-Mode
+
+X-PQC-Version
+
+If these headers are detected:
+
+Reduce migration priority.
+
+Increase quantum readiness.
+
+Generate recommendations acknowledging hybrid post-quantum deployment.
+
+### Recommendation Requirements
+
+Recommendations must be context-aware.
+
+Google, Cloudflare, and a simulated PQC website must all generate different recommendations based on observed cryptographic features.
+
+The recommendation engine must never produce identical reports for different scan results.
+
+### Code Quality
+
+Refactor only the recommendation engine.
+
+Keep the existing application structure.
+
+Do not change the UI.
+
+Do not remove existing functionality.
+
+Do not rewrite unrelated files.
+
+Modify only what is required to satisfy the above behavior.
