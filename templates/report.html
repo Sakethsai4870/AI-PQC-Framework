@@ -1,1 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PQC Report — {{ scan.domain }}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
 
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🔐 AI-PQC<span>Framework</span></a>
+    <div class="nav-links">
+      <a href="/">Scanner</a>
+      <a href="/history">History</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <h1>{{ scan.domain }}</h1>
+      <p>Scanned {{ scan.scan_date.strftime('%Y-%m-%d %H:%M UTC') if scan.scan_date else 'Unknown' }}</p>
+    </div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+      <a href="/report/{{ scan.id }}/pdf" class="btn btn-primary btn-sm">⬇ Download PDF</a>
+      <a href="/" class="btn btn-outline btn-sm">← New Scan</a>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="margin-bottom:2rem;">
+    <div class="stat-card">
+      {% set rl = scan.risk_level|lower if scan.risk_level else 'unknown' %}
+      <div class="stat-value"><span class="badge badge-{{ rl }}">{{ scan.risk_level or 'N/A' }}</span></div>
+      <div class="stat-label">Risk Level</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ "%.0f"|format((scan.overall_score or 0) * 100) }}%</div>
+      <div class="stat-label">Overall Risk Score</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ "%.0f"|format((scan.quantum_risk_score or 0) * 100) }}%</div>
+      <div class="stat-label">Quantum Risk Score</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ "%.0f"|format(scan.headers_score or 0) }}%</div>
+      <div class="stat-label">Header Security Score</div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">🔒 SSL/TLS Details</div>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">TLS Version</div>
+          <div class="info-value">{{ scan.ssl_version or '—' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Cipher Suite</div>
+          <div class="info-value" style="font-size:0.82rem;">{{ scan.cipher_suite or '—' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Key Algorithm</div>
+          <div class="info-value">{{ scan.key_algorithm or '—' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Key Size</div>
+          <div class="info-value">{{ scan.key_size|string + ' bits' if scan.key_size else '—' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Certificate Expiry</div>
+          <div class="info-value" style="font-size:0.82rem;">{{ scan.cert_expiry or '—' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Risk Meter</div>
+      {% set score_pct = ((scan.overall_score or 0) * 100)|int %}
+      {% set rl = scan.risk_level|lower if scan.risk_level else 'unknown' %}
+      <div class="score-circle score-{{ rl }}" style="margin-bottom:1rem;">
+        <span class="score-num">{{ score_pct }}%</span>
+        <span class="score-label">{{ scan.risk_level or 'Unknown' }}</span>
+      </div>
+      <div class="risk-meter">
+        <div class="risk-meter-bar">
+          <div class="risk-meter-fill fill-{{ rl }}" style="width:{{ score_pct }}%;"></div>
+        </div>
+      </div>
+      <p style="font-size:0.83rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">
+        Higher score = greater quantum vulnerability
+      </p>
+    </div>
+  </div>
+
+  {% if raw and raw.get('ssl') and raw['ssl'].get('cert_issuer') %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🏷️ Certificate Details</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Subject</div>
+        <div class="info-value">{{ raw['ssl'].get('cert_subject', '—') }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Issuer</div>
+        <div class="info-value">{{ raw['ssl'].get('cert_issuer', '—') }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if raw and raw.get('headers') %}
+  {% set hd = raw['headers'] %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🛡️ HTTP Security Headers ({{ hd.get('score', 0) }}%)</div>
+    <div style="margin-bottom:0.75rem;">
+      {% for h in hd.get('present', []) %}
+        <span class="header-tag header-present">✓ {{ h }}</span>
+      {% endfor %}
+      {% for h in hd.get('missing', []) %}
+        <span class="header-tag header-missing">✗ {{ h }}</span>
+      {% endfor %}
+    </div>
+    {% if hd.get('error') %}
+      <div class="alert alert-error" style="font-size:0.85rem;">{{ hd['error'] }}</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if raw and raw.get('domain') %}
+  {% set dm = raw['domain'] %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">🌐 DNS Information</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">IP Addresses</div>
+        <div class="info-value">{{ dm.get('ip_addresses', [])|join(', ') or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">DNSSEC</div>
+        <div class="info-value">{{ '✓ Enabled' if dm.get('dnssec_enabled') else '✗ Not detected' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">MX Records</div>
+        <div class="info-value">{{ dm.get('mx_records', [])|join(', ') or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">NS Records</div>
+        <div class="info-value" style="font-size:0.82rem;">{{ dm.get('ns_records', [])|join(', ') or '—' }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recommendations %}
+  {% if recommendations.get('priority_actions') %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">⚡ Priority Actions</div>
+    {% for action in recommendations['priority_actions'] %}
+    <div class="rec-item priority-{{ action.priority }}">
+      <div class="rec-title"><span class="badge badge-{{ action.priority|lower }}">{{ action.priority }}</span> {{ action.action }}</div>
+      <div class="rec-detail">{{ action.detail }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if recommendations.get('recommendations') %}
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">💡 Recommendations</div>
+    {% for rec in recommendations['recommendations'] %}
+    <div class="rec-item priority-{{ rec.urgency }}">
+      <div class="rec-title">{{ rec.category }}: {{ rec.recommendation }}</div>
+      <div class="rec-detail">{{ rec.detail }}</div>
+      <div class="rec-meta">
+        <span>Urgency: {{ rec.urgency }}</span>
+        {% if rec.get('standard') %}<span>Standard: {{ rec['standard'] }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div style="text-align:center;padding:2rem 0;color:var(--text-muted);font-size:0.85rem;">
+    AI-PQC Framework Report &mdash; Generated {{ scan.scan_date.strftime('%Y-%m-%d %H:%M UTC') if scan.scan_date else '' }}
+  </div>
+</div>
+
+</body>
+</html>

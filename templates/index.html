@@ -1,1 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-PQC Framework — Post-Quantum Cryptography Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
 
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🔐 AI-PQC<span>Framework</span></a>
+    <div class="nav-links">
+      <a href="/" class="active">Scanner</a>
+      <a href="/history">History</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Post-Quantum <span>Cryptography</span> Scanner</h1>
+  <p>Analyze your domain's SSL/TLS configuration and get AI-powered quantum security recommendations.</p>
+</div>
+
+<div class="container">
+  <div class="scan-card">
+    <div class="card-title">🔍 Scan a Domain</div>
+    <div class="scan-form">
+      <input type="text" id="domain-input" class="scan-input" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <button class="btn btn-primary" id="scan-btn" onclick="startScan()">
+        <span id="btn-text">Scan Now</span>
+      </button>
+    </div>
+    <p style="font-size:0.82rem;color:#aaa;margin-top:0.75rem;">Enter a domain name without http:// prefix. The scan checks SSL/TLS, DNS, and HTTP headers.</p>
+  </div>
+
+  <div id="loading" style="display:none;">
+    <div class="card" style="max-width:700px;margin:0 auto 2rem;">
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>
+          <div style="font-weight:600;color:var(--primary);" id="loading-text">Scanning domain...</div>
+          <div style="font-size:0.83rem;color:var(--text-muted);">Checking SSL, DNS, HTTP headers and running AI analysis</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-box" style="display:none;max-width:700px;margin:0 auto 1.5rem;"></div>
+
+  <div id="results">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+      <div>
+        <h2 id="result-domain" style="font-size:1.5rem;color:var(--primary);"></h2>
+        <div id="result-date" style="font-size:0.83rem;color:var(--text-muted);"></div>
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <a id="report-link" href="#" class="btn btn-secondary btn-sm">📄 View Full Report</a>
+        <a id="pdf-link" href="#" class="btn btn-outline btn-sm">⬇ Download PDF</a>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-risk">—</div>
+        <div class="stat-label">Risk Level</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-score">—</div>
+        <div class="stat-label">Quantum Risk Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-algo">—</div>
+        <div class="stat-label">Key Algorithm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-tls">—</div>
+        <div class="stat-label">TLS Version</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-headers">—</div>
+        <div class="stat-label">Security Headers</div>
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">🔒 SSL/TLS Details</div>
+        <div class="info-grid" id="ssl-info"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🤖 AI Risk Explanation</div>
+        <div id="ai-explanation"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-title">📊 Risk Factor Breakdown</div>
+      <div id="feature-bars"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-title">🛡️ HTTP Security Headers</div>
+      <div id="headers-info"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-title">⚡ Priority Actions</div>
+      <div id="priority-actions"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-title">💡 Recommendations</div>
+      <div id="recommendations"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem;">
+      <div class="card-title">🔬 NIST Post-Quantum Standards</div>
+      <div class="pqc-grid" id="pqc-standards"></div>
+    </div>
+  </div>
+
+  {% if recent_scans %}
+  <div class="card">
+    <div class="card-title">🕓 Recent Scans</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Domain</th><th>Risk Level</th><th>Algorithm</th><th>TLS</th><th>Score</th><th>Date</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for s in recent_scans %}
+          <tr>
+            <td><strong>{{ s.domain }}</strong></td>
+            <td><span class="badge badge-{{ s.risk_level|lower if s.risk_level else 'unknown' }}">{{ s.risk_level or 'N/A' }}</span></td>
+            <td>{{ s.key_algorithm or '—' }} {{ s.key_size or '' }}{% if s.key_size %}-bit{% endif %}</td>
+            <td>{{ s.ssl_version or '—' }}</td>
+            <td>{% if s.overall_score is not none %}{{ "%.0f"|format(s.overall_score * 100) }}%{% else %}—{% endif %}</td>
+            <td>{{ s.scan_date.strftime('%Y-%m-%d %H:%M') if s.scan_date else '—' }}</td>
+            <td><a href="/report/{{ s.id }}" class="btn btn-sm btn-outline">Report</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+let currentScanId = null;
+
+async function startScan() {
+  const domain = document.getElementById('domain-input').value.trim();
+  if (!domain) { alert('Please enter a domain name.'); return; }
+
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('btn-text').textContent = 'Scanning...';
+
+  try {
+    const res = await fetch('/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain }),
+    });
+    const data = await res.json();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('scan-btn').disabled = false;
+    document.getElementById('btn-text').textContent = 'Scan Now';
+
+    if (!res.ok || data.error) {
+      showError(data.error || 'Scan failed. Please try again.');
+      return;
+    }
+
+    renderResults(data);
+  } catch (err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('scan-btn').disabled = false;
+    document.getElementById('btn-text').textContent = 'Scan Now';
+    showError('Network error: ' + err.message);
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.innerHTML = `<div class="alert alert-error">⚠️ ${msg}</div>`;
+  box.style.display = 'block';
+}
+
+function renderResults(data) {
+  currentScanId = data.scan_id;
+  document.getElementById('result-domain').textContent = data.domain;
+  document.getElementById('result-date').textContent = 'Scanned on ' + new Date(data.scan_date).toLocaleString();
+  document.getElementById('report-link').href = '/report/' + data.scan_id;
+  document.getElementById('pdf-link').href = '/report/' + data.scan_id + '/pdf';
+
+  const riskLevel = data.prediction?.risk_level || 'Unknown';
+  const score = data.overall_score || 0;
+  const riskEl = document.getElementById('stat-risk');
+  riskEl.innerHTML = `<span class="badge badge-${riskLevel.toLowerCase()}">${riskLevel}</span>`;
+  document.getElementById('stat-score').textContent = (score * 100).toFixed(0) + '%';
+  document.getElementById('stat-algo').textContent = (data.ssl?.key_algorithm || '—') + (data.ssl?.key_size ? '-' + data.ssl.key_size : '');
+  document.getElementById('stat-tls').textContent = data.ssl?.ssl_version || '—';
+  document.getElementById('stat-headers').textContent = (data.headers?.score || 0) + '%';
+
+  const ssl = data.ssl || {};
+  const sslInfo = document.getElementById('ssl-info');
+  sslInfo.innerHTML = [
+    ['Protocol', ssl.ssl_version || '—'],
+    ['Cipher', ssl.cipher_suite || (ssl.error ? '⚠ ' + ssl.error : '—')],
+    ['Key Algorithm', ssl.key_algorithm || '—'],
+    ['Key Size', ssl.key_size ? ssl.key_size + ' bits' : '—'],
+    ['Cert Expiry', ssl.cert_expiry || '—'],
+    ['Issuer', ssl.cert_issuer || '—'],
+  ].map(([label, val]) => `
+    <div class="info-item">
+      <div class="info-label">${label}</div>
+      <div class="info-value">${val}</div>
+    </div>
+  `).join('');
+
+  const exp = data.explanation || {};
+  const aiEl = document.getElementById('ai-explanation');
+  aiEl.innerHTML = `<p style="font-size:0.9rem;margin-bottom:0.75rem;">${exp.summary || 'No explanation available.'}</p>`;
+  if (exp.top_risk_factor) {
+    aiEl.innerHTML += `<div class="alert alert-info" style="font-size:0.85rem;">🎯 Top Risk Factor: <strong>${exp.top_risk_factor}</strong></div>`;
+  }
+
+  const featureBars = document.getElementById('feature-bars');
+  featureBars.innerHTML = (exp.contributions || []).map(c => {
+    const pct = Math.round(c.value * 100);
+    const color = pct > 70 ? '#ef476f' : pct > 40 ? '#ffd166' : '#06d6a0';
+    return `
+      <div class="feature-item">
+        <div class="feature-label">
+          <span>${c.feature}</span>
+          <span style="color:var(--text-muted)">${pct}% risk — <em>${c.impact}</em></span>
+        </div>
+        <div class="feature-bar">
+          <div class="feature-fill" style="width:${pct}%;background:${color};"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const hd = data.headers || {};
+  const hdEl = document.getElementById('headers-info');
+  let hdHtml = `<div style="margin-bottom:0.75rem;">
+    <strong>${hd.score || 0}% score</strong> — 
+    ${hd.present?.length || 0} present, ${hd.missing?.length || 0} missing
+  </div>`;
+  if (hd.present?.length) {
+    hdHtml += hd.present.map(h => `<span class="header-tag header-present">✓ ${h}</span>`).join('');
+  }
+  if (hd.missing?.length) {
+    hdHtml += hd.missing.map(h => `<span class="header-tag header-missing">✗ ${h}</span>`).join('');
+  }
+  if (hd.error) {
+    hdHtml += `<div class="alert alert-error" style="margin-top:0.5rem;font-size:0.85rem;">${hd.error}</div>`;
+  }
+  hdEl.innerHTML = hdHtml;
+
+  const recs = data.recommendations || {};
+  const paEl = document.getElementById('priority-actions');
+  paEl.innerHTML = (recs.priority_actions || []).map(a => `
+    <div class="rec-item priority-${a.priority}">
+      <div class="rec-title"><span class="badge badge-${a.priority.toLowerCase()}">${a.priority}</span> ${a.action}</div>
+      <div class="rec-detail">${a.detail}</div>
+    </div>
+  `).join('') || '<p style="color:var(--text-muted);font-size:0.9rem;">No critical actions required.</p>';
+
+  const recEl = document.getElementById('recommendations');
+  recEl.innerHTML = (recs.recommendations || []).map(r => `
+    <div class="rec-item priority-${r.urgency}">
+      <div class="rec-title">${r.category}: ${r.recommendation}</div>
+      <div class="rec-detail">${r.detail}</div>
+      <div class="rec-meta">
+        <span>Urgency: ${r.urgency}</span>
+        ${r.standard ? `<span>Standard: ${r.standard}</span>` : ''}
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--text-muted);font-size:0.9rem;">No additional recommendations.</p>';
+
+  const pqcEl = document.getElementById('pqc-standards');
+  pqcEl.innerHTML = Object.entries(recs.pqc_standards || {}).map(([name, info]) => `
+    <div class="pqc-card">
+      <h4>${name}</h4>
+      <div class="formerly">formerly ${info.formerly}</div>
+      <div class="pqc-status">${info.status}</div>
+      <p>${info.description}</p>
+    </div>
+  `).join('');
+
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.getElementById('domain-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') startScan();
+});
+</script>
+</body>
+</html>

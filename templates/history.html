@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan History — AI-PQC Framework</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🔐 AI-PQC<span>Framework</span></a>
+    <div class="nav-links">
+      <a href="/">Scanner</a>
+      <a href="/history" class="active">History</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Scan History</h1>
+    <p>All previous domain scans and their quantum security assessments.</p>
+  </div>
+
+  {% if scans %}
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Risk Level</th>
+            <th>Algorithm</th>
+            <th>TLS Version</th>
+            <th>Quantum Score</th>
+            <th>Header Score</th>
+            <th>Scan Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in scans %}
+          <tr>
+            <td><strong>{{ s.domain }}</strong></td>
+            <td>
+              {% set rl = s.risk_level|lower if s.risk_level else 'unknown' %}
+              <span class="badge badge-{{ rl }}">{{ s.risk_level or 'N/A' }}</span>
+            </td>
+            <td>
+              {% if s.key_algorithm %}
+                {{ s.key_algorithm }}{% if s.key_size %}-{{ s.key_size }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ s.ssl_version or '—' }}</td>
+            <td>
+              {% if s.quantum_risk_score is not none %}
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  {{ "%.0f"|format(s.quantum_risk_score * 100) }}%
+                  <div style="width:60px;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;">
+                    {% set rl = s.risk_level|lower if s.risk_level else 'unknown' %}
+                    <div style="width:{{ "%.0f"|format(s.quantum_risk_score * 100) }}%;height:100%;background:{% if rl == 'critical' %}#ef476f{% elif rl == 'high' %}#e67e22{% elif rl == 'medium' %}#ffd166{% else %}#06d6a0{% endif %};"></div>
+                  </div>
+                </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ "%.0f"|format(s.headers_score or 0) }}%</td>
+            <td>{{ s.scan_date.strftime('%Y-%m-%d %H:%M') if s.scan_date else '—' }}</td>
+            <td>
+              <a href="/report/{{ s.id }}" class="btn btn-sm btn-outline">Report</a>
+              <a href="/report/{{ s.id }}/pdf" class="btn btn-sm btn-secondary" style="margin-left:0.25rem;">PDF</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:3rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;">🔍</div>
+    <h3 style="color:var(--primary);margin-bottom:0.5rem;">No scans yet</h3>
+    <p style="color:var(--text-muted);margin-bottom:1.5rem;">Start scanning domains to see their quantum security assessments here.</p>
+    <a href="/" class="btn btn-primary">Scan a Domain</a>
+  </div>
+  {% endif %}
+</div>
+
+</body>
+</html>
